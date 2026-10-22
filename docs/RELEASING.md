@@ -25,6 +25,12 @@ git remote add origin https://github.com/<你>/picpress.git
 git push -u origin main
 ```
 
+> **本机需要代理才能访问 github.com 时**，给命令加一个参数即可（不需要改全局配置）：
+>
+> ```bash
+> git -c http.proxy=http://127.0.0.1:7897 push -u origin main
+> ```
+
 > 首次推送整包代码也可以直接用 `python scripts/publish_github.py`（见 2.3），
 > 它会通过 GitHub API 建仓库并提交，不需要 `github.com` 的直连。
 
