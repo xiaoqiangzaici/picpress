@@ -85,7 +85,7 @@ PicPress 会把照片重新编码到刚好装得下——并且用**满足目标
 ### 从源码运行
 
 ```bash
-git clone https://github.com/your-name/picpress.git
+git clone https://github.com/xiaoqiangzaici/picpress.git
 cd picpress
 pip install -e ".[all]"        # 核心 + GUI + MCP
 python -m picpress             # 启动桌面应用

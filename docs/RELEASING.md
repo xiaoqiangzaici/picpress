@@ -8,11 +8,11 @@
 
 ### 0.1 把占位地址换成你的仓库
 
-代码和文档里目前用的是占位地址 `your-name/picpress`。一条命令全部替换：
+仓库地址已写入本项目（`xiaoqiangzaici/picpress`）。若你 fork 或改名，一条命令全部替换：
 
 ```bash
 python scripts/set_repo.py <你的GitHub用户名>/picpress
-# 例：python scripts/set_repo.py xiaoqiang/picpress
+# 例：python scripts/set_repo.py xiaoqiangzaici/picpress
 ```
 
 它会改这 4 处：`README.md`、`README.zh-CN.md`、`pyproject.toml`、`src/picpress/gui.py`（应用内 GitHub 按钮）。

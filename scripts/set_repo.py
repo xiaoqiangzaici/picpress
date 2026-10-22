@@ -18,6 +18,7 @@ OLD = "your-name/picpress"
 TARGETS = [
     ROOT / "README.md",
     ROOT / "README.zh-CN.md",
+    ROOT / "CONTRIBUTING.md",
     ROOT / "pyproject.toml",
     ROOT / "src" / "picpress" / "gui.py",
 ]

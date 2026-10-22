@@ -85,7 +85,7 @@ It ships in two forms:
 ### From source
 
 ```bash
-git clone https://github.com/your-name/picpress.git
+git clone https://github.com/xiaoqiangzaici/picpress.git
 cd picpress
 pip install -e ".[all]"        # core + GUI + MCP
 python -m picpress             # launch the desktop app

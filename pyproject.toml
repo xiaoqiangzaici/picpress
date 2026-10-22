@@ -32,8 +32,8 @@ picpress = "picpress.gui:main"
 picpress-mcp = "picpress.mcp_server:main"
 
 [project.urls]
-Homepage = "https://github.com/your-name/picpress"
-Issues = "https://github.com/your-name/picpress/issues"
+Homepage = "https://github.com/xiaoqiangzaici/picpress"
+Issues = "https://github.com/xiaoqiangzaici/picpress/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]

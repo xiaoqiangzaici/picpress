@@ -13,7 +13,7 @@ Thanks for taking the time to contribute! This guide keeps things simple.
 ## Development setup
 
 ```bash
-git clone https://github.com/your-name/picpress.git
+git clone https://github.com/xiaoqiangzaici/picpress.git
 cd picpress
 pip install -e ".[dev]"     # core + GUI + MCP + build tools
 

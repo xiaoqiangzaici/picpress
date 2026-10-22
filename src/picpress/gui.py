@@ -62,7 +62,7 @@ from .i18n import DEFAULT_LANG, t
 
 APP_NAME = "PicPress"
 APP_VERSION = "0.2.0"
-GITHUB_URL = "https://github.com/your-name/picpress"
+GITHUB_URL = "https://github.com/xiaoqiangzaici/picpress"
 
 # Output format choices: key -> (engine format, preferred extension)
 FORMAT_CHOICES: list[tuple[str, str, str | None]] = [
