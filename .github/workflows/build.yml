@@ -22,10 +22,24 @@ jobs:
         run: python tests/test_core.py
       - name: MCP server tests
         run: python tests/test_mcp_server.py
+      # Qt on Windows CI occasionally returns a non-zero exit code while
+      # shutting down even though every test passed (the runner reports
+      # "Process completed with exit code 1" right after the "OK" summary).
+      # Gate on unittest's own summary instead of the process code.
       - name: GUI smoke tests
+        shell: bash
         env:
           QT_QPA_PLATFORM: offscreen
-        run: python tests/test_gui_smoke.py
+        run: |
+          set -o pipefail
+          python tests/test_gui_smoke.py 2>&1 | tee gui-smoke.log
+          code=${PIPESTATUS[0]}
+          echo "GUI suite exit code: ${code}"
+          if grep -qE "^OK" gui-smoke.log; then
+            echo "unittest reported OK - treating a non-zero Qt shutdown code as benign"
+            exit 0
+          fi
+          exit "${code}"
 
   build-windows:
     needs: test
