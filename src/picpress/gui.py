@@ -6,6 +6,8 @@ rebuilt in another language at runtime (EN / 简体中文).
 
 from __future__ import annotations
 
+import atexit
+import os
 import sys
 import tempfile
 from pathlib import Path
@@ -86,25 +88,46 @@ C_WARNING = "#F5B83D"
 C_DANGER = "#FF6B6B"
 
 
+def _sweep_stale_chevrons() -> None:
+    """Delete chevron PNGs left behind by a previous crashed/killed run.
+
+    Only files older than an hour are touched, so a second running instance
+    (which needs its own file for the QSS) is never affected.
+    """
+    import time
+
+    temp_dir = Path(tempfile.gettempdir())
+    cutoff = time.time() - 3600
+    for pattern in ("picpress_chevron_*.png", "picpress_chevron_v1.png"):
+        for stale in temp_dir.glob(pattern):
+            try:
+                if stale.stat().st_mtime < cutoff:
+                    stale.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+
 def _chevron_image_path() -> str:
     """Draw a small down-chevron PNG and return its path for use in QSS.
 
     Qt renders CSS border-triangles as boxes, and the native arrow is
-    invisible on a dark surface, so we ship a generated icon instead.
+    invisible on a dark surface, so we ship a generated icon instead. The
+    file is per-process and deleted on exit, leaving nothing behind.
     """
-    path = Path(tempfile.gettempdir()) / "picpress_chevron_v1.png"
-    if not path.exists():
-        scale = 4
-        size = 11 * scale
-        img = PILImage.new("RGBA", (size, size), (0, 0, 0, 0))
-        draw = ImageDraw.Draw(img)
-        w = 1.8 * scale
-        draw.line([(1.6 * scale, 3.4 * scale), (5.5 * scale, 7.4 * scale)],
-                  fill=(138, 146, 168, 255), width=int(w))
-        draw.line([(5.5 * scale, 7.4 * scale), (9.4 * scale, 3.4 * scale)],
-                  fill=(138, 146, 168, 255), width=int(w))
-        img = img.resize((11, 11), PILImage.Resampling.LANCZOS)
-        img.save(path)
+    _sweep_stale_chevrons()
+    path = Path(tempfile.gettempdir()) / f"picpress_chevron_{os.getpid()}.png"
+    scale = 4
+    size = 11 * scale
+    img = PILImage.new("RGBA", (size, size), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(img)
+    w = 1.8 * scale
+    draw.line([(1.6 * scale, 3.4 * scale), (5.5 * scale, 7.4 * scale)],
+              fill=(138, 146, 168, 255), width=int(w))
+    draw.line([(5.5 * scale, 7.4 * scale), (9.4 * scale, 3.4 * scale)],
+              fill=(138, 146, 168, 255), width=int(w))
+    img = img.resize((11, 11), PILImage.Resampling.LANCZOS)
+    img.save(path)
+    atexit.register(lambda p=path: p.unlink(missing_ok=True))
     return path.as_posix()
 
 

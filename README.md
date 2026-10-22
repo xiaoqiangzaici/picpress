@@ -5,6 +5,21 @@
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-6D8BFF.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-6D8BFF.svg)](#-requirements)
+[![Python](https://img.shields.io/badge/python-3.10%2B-6D8BFF.svg)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/tests-28%20passing-3ECF8E.svg)](tests/)
+
+### ⬇️ [Download the latest release](../../releases/latest) · [下载最新版](../../releases/latest)
+
+| Download | Size | Notes |
+|---|---|---|
+| **PicPress.exe** | ~55 MB | Desktop app, single file, no installer |
+| **picpress-mcp.exe** | ~37 MB | Local MCP server for AI agents |
+| **PicPress-portable.zip** | ~140 MB | Folder build — starts faster, **writes nothing to `%TEMP%`** |
+
+No account, no upload, works fully offline.
+
 ---
 
 PicPress is a focused image-compression tool: you pick a target file size
@@ -178,9 +193,92 @@ never silently wrong.
 
 ```bash
 pip install -e ".[dev]"
-python scripts/build.py
-# → dist/PicPress.exe, dist/picpress-mcp.exe
+python scripts/build.py                # → dist/PicPress.exe, dist/picpress-mcp.exe
+python scripts/build.py all --onedir   # → dist/PicPress/PicPress.exe (no %TEMP% extraction)
 ```
+
+Both modes run a smoke test at the end (launch the GUI, handshake with the MCP
+server) and clean up after themselves.
+
+## 🖥 Requirements
+
+- **Prebuilt exe:** Windows 10 / 11 (x64). No admin rights, no Python, no
+  installer, no runtime to install first.
+- **From source:** Python 3.10+ (3.12 / 3.13 recommended) and
+  `pip install -e ".[all]"`.
+- **macOS / Linux:** the compression engine and the MCP server are pure Python
+  and work everywhere; the GUI runs from source with PySide6. Prebuilt binaries
+  are Windows-only for now.
+
+## 🔒 Privacy & footprint
+
+PicPress is deliberately boring about your data:
+
+- **Fully offline.** No telemetry, no analytics, no update pings. The only
+  network action is the GitHub button in the header *if you click it*.
+- **No registry footprint.** No installer, no shell extension, no file
+  associations, no startup entries, no background service. Delete the exe and
+  it is gone.
+- **Your originals are never modified.** PicPress always writes a new file.
+- **Temp files:** the single-file build (`--onefile`) unpacks its runtime to
+  `%TEMP%\_MEI*` on launch (~134 MB) and removes it when you close the app
+  normally. If the process is killed or the machine loses power, that folder can
+  remain — it is pure temp data and safe to delete (Windows *Disk Cleanup* also
+  removes it). The portable `--onedir` build extracts **nothing**.
+
+To clean up leftovers from a crashed run (removes only PyInstaller's own temp
+folders — never the whole `%TEMP%`):
+
+```bat
+for /d %d in ("%TEMP%\_MEI*") do @rmdir /s /q "%d"
+```
+
+(Windows *Disk Cleanup → Temporary files* does the same thing.)
+
+### Uninstall
+
+1. Delete `PicPress.exe` (and `picpress-mcp.exe` if you used the MCP server)
+2. Optionally remove the `picpress` entry from your MCP client config
+3. Nothing else — no registry keys, no app data folders
+
+## ❓ FAQ
+
+**Windows shows "Windows protected your PC".**
+The exe is unsigned (a code-signing certificate costs money). Click
+*More info → Run anyway*. Your browser's download history and Windows'
+reputation system will make this go away over time.
+
+**Why can't I set a target bigger than the original file?**
+Because that isn't compression. PicPress refuses and tells you, instead of
+writing a larger file that pretends to be compressed.
+
+**What if my target is impossibly small?**
+PicPress reports the smallest size it can actually produce and suggests a
+larger target (or enabling downscaling).
+
+**Will it overwrite my files?**
+No. Outputs are named `<name>_<target>.<ext>` and repeats get ` (2)`, ` (3)`.
+Your originals stay untouched.
+
+**Why is the exe ~55 MB?**
+It bundles Python, Qt and Pillow so it runs on a machine with nothing installed.
+The portable folder build is the same size but starts faster.
+
+**Can it handle a whole folder?**
+Yes — *Add folder* or drag a folder in, everything goes to the same target.
+
+## 📤 Sharing it with others
+
+- **Simplest:** send `PicPress.exe`. The other person double-clicks it — no
+  install, no Python. (Mention the SmartScreen note above.)
+- **Nicest:** publish a GitHub Release and share
+  `https://github.com/<you>/picpress/releases/latest`.
+- **For agent users:** send `picpress-mcp.exe` plus the MCP config snippet
+  above; they paste it into their client, restart, and can ask their agent to
+  compress photos. Not sure it connected? `picpress-mcp.exe --selftest`.
+
+Maintainer notes for releasing a new version live in
+[docs/RELEASING.md](docs/RELEASING.md).
 
 ## 🧩 Roadmap
 

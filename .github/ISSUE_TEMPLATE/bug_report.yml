@@ -1,0 +1,70 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Please fill in as much as you can — it saves a round trip.
+        For "the exe does nothing", also run `picpress-mcp.exe --selftest` if the issue is on the MCP side.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the actual behaviour, including the exact warning/error text if any.
+      placeholder: I set the target to 200 KB, clicked Compress, and ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open PicPress.exe
+        2. Add photo.jpg (3.1 MB)
+        3. Set target 200 KB, format JPG
+        4. Click Compress
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: PicPress version
+      description: Shown in the app header (e.g. v0.2.0), or the release tag you downloaded.
+      placeholder: v0.2.0
+
+  - type: dropdown
+    id: which-build
+    attributes:
+      label: Which build?
+      options:
+        - PicPress.exe (single file)
+        - PicPress portable folder (--onedir)
+        - picpress-mcp.exe (MCP server)
+        - Running from source (python -m picpress)
+    validations:
+      required: true
+
+  - type: input
+    id: os
+    attributes:
+      label: Windows version
+      placeholder: Windows 11 23H2
+    validations:
+      required: true
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: Screenshots / logs
+      description: Drag images here. For MCP issues, paste the `--selftest` output.

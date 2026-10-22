@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest an idea for PicPress
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        PicPress stays deliberately small — "compress to an exact size, done well".
+        Features that serve that single job are the easiest to accept.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem are you trying to solve?
+      description: Describe the situation, not just the solution.
+      placeholder: I often need images under 100 KB for a forum that rejects anything bigger...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      placeholder: A "target width" option alongside target size...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

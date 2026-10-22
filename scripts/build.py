@@ -1,7 +1,19 @@
-"""Build PicPress.exe (GUI) and picpress-mcp.exe (MCP server) with PyInstaller.
+"""Build PicPress with PyInstaller.
 
-Usage:  python scripts/build.py
-Output: dist/PicPress.exe, dist/picpress-mcp.exe
+Usage:
+    python scripts/build.py                 # all targets, onefile (default)
+    python scripts/build.py gui             # desktop app only
+    python scripts/build.py mcp             # MCP server only
+    python scripts/build.py all --onedir    # portable folder (no temp extraction)
+
+Output (onefile, default):
+    dist/PicPress.exe           single-file GUI app (easy to share, ~55 MB)
+    dist/picpress-mcp.exe       single-file MCP server (~37 MB)
+
+Output (--onedir):
+    dist/PicPress/PicPress.exe  portable folder build (starts faster, writes
+                                nothing to %TEMP% — zip the folder to share)
+    dist/picpress-mcp/picpress-mcp.exe
 """
 
 from __future__ import annotations
@@ -9,6 +21,8 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -28,16 +42,14 @@ def make_icon() -> Path | None:
     icon_path = ASSETS / "picpress.ico"
     ASSETS.mkdir(parents=True, exist_ok=True)
 
-    def render(size: int) -> Image.Image:
+    def render(size: int) -> "Image.Image":
         img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
-        # Gradient-ish tile: two overlapping rounded rects
         r = int(size * 0.22)
         d.rounded_rectangle([0, 0, size - 1, size - 1], radius=r,
                             fill=(109, 139, 255, 255))
         d.rounded_rectangle([size // 2, 0, size - 1, size - 1], radius=r,
                             fill=(155, 109, 255, 255))
-        # Shrink arrow
         w = max(2, int(size * 0.07))
         cx = size // 2
         d.line([(cx, int(size * 0.24)), (cx, int(size * 0.52))],
@@ -52,9 +64,8 @@ def make_icon() -> Path | None:
                fill="white", width=w)
         return img
 
-    sizes = [16, 24, 32, 48, 64, 128, 256]
     render(256).save(icon_path, format="ICO",
-                     sizes=[(s, s) for s in sizes])
+                     sizes=[(s, s) for s in (16, 24, 32, 48, 64, 128, 256)])
     return icon_path
 
 
@@ -64,15 +75,16 @@ def run_pyinstaller(args: list[str]) -> None:
     subprocess.run(cmd, check=True, cwd=ROOT)
 
 
-def build(icon: Path | None, targets: set[str]) -> None:
+def build(icon: Path | None, targets: set[str], onedir: bool) -> None:
     icon_args = ["--icon", str(icon)] if icon else []
+    mode = "--onedir" if onedir else "--onefile"
 
-    # --- GUI exe (windowed, single file) ---------------------------------
-    # Standard PyInstaller PySide6 hooks pick up the needed Qt plugins;
-    # --collect-all would bloat the exe to ~100 MB.
+    # --- GUI app ---------------------------------------------------------
+    # Standard PySide6 hooks pick up the needed Qt plugins; --collect-all
+    # would bloat the exe to ~100 MB.
     if "gui" in targets:
         run_pyinstaller([
-            "--onefile",
+            mode,
             "--windowed",
             "--name", "PicPress",
             *icon_args,
@@ -81,13 +93,13 @@ def build(icon: Path | None, targets: set[str]) -> None:
             str(ROOT / "scripts" / "entry_gui.py"),
         ])
 
-    # --- MCP server exe (console, single file) ---------------------------
+    # --- MCP server ------------------------------------------------------
     # NOTE: do NOT --collect-submodules mcp — mcp.cli calls sys.exit at
     # import time when the optional `typer` dep is missing. Plain import
     # analysis of mcp.server.mcpserver is sufficient.
     if "mcp" in targets:
         run_pyinstaller([
-            "--onefile",
+            mode,
             "--console",
             "--name", "picpress-mcp",
             "--paths", str(SRC),
@@ -98,42 +110,59 @@ def build(icon: Path | None, targets: set[str]) -> None:
         ])
 
 
-def smoke_test(targets: set[str]) -> None:
+def _mei_dirs() -> set[Path]:
+    """PyInstaller onefile extraction dirs currently in %TEMP%."""
+    return set(Path(tempfile.gettempdir()).glob("_MEI*"))
+
+
+def _gui_exe(onedir: bool, name: str = "PicPress") -> Path:
+    return DIST / name / f"{name}.exe" if onedir else DIST / f"{name}.exe"
+
+
+def smoke_test(targets: set[str], onedir: bool) -> None:
     """Quick sanity checks on the built binaries."""
-    gui_exe = DIST / "PicPress.exe"
-    mcp_exe = DIST / "picpress-mcp.exe"
+    gui_exe = _gui_exe(onedir)
+    mcp_exe = _gui_exe(onedir, "picpress-mcp")
 
     if "gui" in targets:
         if not gui_exe.exists():
             raise SystemExit(f"Missing build output: {gui_exe}")
-        print(f"OK  {gui_exe.name}  {gui_exe.stat().st_size / 1024 / 1024:.1f} MB")
+        size = (sum(f.stat().st_size for f in gui_exe.parent.rglob("*") if f.is_file())
+                if onedir else gui_exe.stat().st_size)
+        print(f"OK  {gui_exe}  {size / 1024 / 1024:.1f} MB")
 
-        # Launch smoke test: the windowed exe must stay alive for a few seconds.
-        import time
+        before = _mei_dirs()
         proc = subprocess.Popen([str(gui_exe)])
-        time.sleep(6)
+        time.sleep(7)
         alive = proc.poll() is None
-        if alive:
-            proc.terminate()
-            try:
-                proc.wait(timeout=10)
-            except subprocess.TimeoutExpired:
-                proc.kill()
-        else:
-            raise SystemExit(f"PicPress.exe exited immediately (code {proc.returncode})")
-        print("OK  PicPress.exe launches and stays alive")
+        # Close it: force-kill every PicPress process, then drop any temp
+        # extraction dir this run created (keeps the dev machine clean).
+        subprocess.run(["taskkill", "/IM", gui_exe.name, "/F"],
+                       capture_output=True) if sys.platform == "win32" else proc.kill()
+        try:
+            proc.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            proc.kill()
+        time.sleep(1)
+        created = _mei_dirs() - before
+        for d in created:
+            shutil.rmtree(d, ignore_errors=True)
+
+        if not alive:
+            raise SystemExit(f"{gui_exe.name} exited immediately (code {proc.returncode})")
+        print(f"OK  {gui_exe.name} launches and stays alive"
+              f"  ({len(created)} temp dir(s) created, cleaned up)")
 
     if "mcp" not in targets:
         return
 
     if not mcp_exe.exists():
         raise SystemExit(f"Missing build output: {mcp_exe}")
-    print(f"OK  {mcp_exe.name}  {mcp_exe.stat().st_size / 1024 / 1024:.1f} MB")
+    print(f"OK  {mcp_exe}  {mcp_exe.stat().st_size / 1024 / 1024:.1f} MB")
 
     # MCP handshake smoke test against the packaged exe.
     sys.path.insert(0, str(SRC))
     import asyncio
-    import json
     from mcp import ClientSession, StdioServerParameters
     from mcp.client.stdio import stdio_client
 
@@ -151,16 +180,21 @@ def smoke_test(targets: set[str]) -> None:
 
 
 if __name__ == "__main__":
-    args = [a.lower() for a in sys.argv[1:]]
-    targets = {"gui", "mcp"} if not args or "all" in args else set(args) & {"gui", "mcp"}
+    argv = [a.lower() for a in sys.argv[1:]]
+    onedir = "--onedir" in argv
+    argv = [a for a in argv if not a.startswith("--")]
+    targets = ({"gui", "mcp"} if not argv or "all" in argv
+               else set(argv) & {"gui", "mcp"})
     if not targets:
-        raise SystemExit("usage: build.py [gui|mcp|all]")
+        raise SystemExit("usage: build.py [gui|mcp|all] [--onedir]")
+
     DIST.mkdir(exist_ok=True)
     BUILD.mkdir(exist_ok=True)
     icon = make_icon()
-    print("icon:", icon, "| targets:", sorted(targets))
-    build(icon, targets)
-    smoke_test(targets)
+    print(f"icon: {icon} | targets: {sorted(targets)} | "
+          f"mode: {'onedir' if onedir else 'onefile'}")
+    build(icon, targets, onedir)
+    smoke_test(targets, onedir)
     print("\nBuild complete:")
-    for f in sorted(DIST.glob("*.exe")):
-        print(f"  {f}  ({f.stat().st_size / 1024 / 1024:.1f} MB)")
+    for exe in sorted(DIST.glob("*.exe")) + sorted(DIST.glob("*/*.exe")):
+        print(f"  {exe}")

@@ -5,6 +5,21 @@ Compress photos to the exact size you choose — 精确到 B / KB / MB。
 
 [English](README.md) · [简体中文](README.zh-CN.md)
 
+[![License: MIT](https://img.shields.io/badge/license-MIT-6D8BFF.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-6D8BFF.svg)](#-运行要求)
+[![Python](https://img.shields.io/badge/python-3.10%2B-6D8BFF.svg)](pyproject.toml)
+[![Tests](https://img.shields.io/badge/tests-28%20passing-3ECF8E.svg)](tests/)
+
+### ⬇️ [下载最新版本](../../releases/latest)
+
+| 下载 | 大小 | 说明 |
+|---|---|---|
+| **PicPress.exe** | 约 55 MB | 桌面应用，单文件，免安装 |
+| **picpress-mcp.exe** | 约 37 MB | 给 AI 智能体用的本地 MCP 服务 |
+| **PicPress-portable.zip** | 约 140 MB | 便携文件夹版，启动更快、**不写 `%TEMP%`** |
+
+不需要账号、不上传文件、全程离线。
+
 ---
 
 PicPress 是一款专注的图片压缩工具：你指定目标体积（比如 `500 KB`），
@@ -173,9 +188,77 @@ python scripts/test_mcp.py --python   # 测试源码
 
 ```bash
 pip install -e ".[dev]"
-python scripts/build.py
-# → dist/PicPress.exe、dist/picpress-mcp.exe
+python scripts/build.py                # → dist/PicPress.exe、dist/picpress-mcp.exe
+python scripts/build.py all --onedir   # → dist/PicPress/PicPress.exe（不解包到 %TEMP%）
 ```
+
+两种模式结束前都会自动做冒烟测试（启动 GUI、与 MCP 握手），并清理测试产生的临时目录。
+
+## 🖥 运行要求
+
+- **现成 exe**：Windows 10 / 11（x64）。无需管理员权限、无需 Python、无需安装任何运行库。
+- **从源码运行**：Python 3.10+（推荐 3.12 / 3.13），执行 `pip install -e ".[all]"`。
+- **macOS / Linux**：压缩引擎与 MCP 服务是纯 Python，跨平台可用；界面可从源码运行。
+  预编译的 exe 目前只提供 Windows 版。
+
+## 🔒 隐私与磁盘足迹
+
+PicPress 在数据方面很"无聊"，这是故意的：
+
+- **完全离线。** 无遥测、无统计、无更新检查。唯一可能联网的动作是你主动点标题栏的
+  GitHub 按钮（会打开浏览器）。
+- **不写注册表。** 没有安装程序、没有右键菜单扩展、没有文件关联、没有开机自启、
+  没有后台服务。**删掉 exe 就等于卸载干净。**
+- **绝不动原图。** 永远另写新文件。
+- **临时文件：** 单文件版（`--onefile`）启动时会把运行库解包到 `%TEMP%\_MEI*`
+  （约 134 MB），正常关闭窗口时会自动删除。如果是**强制结束进程**或断电，
+  这个目录可能残留——它是纯临时数据，删掉即可（Windows「磁盘清理 → 临时文件」也会清）。
+  便携文件夹版（`--onedir`）**不做任何解包**。
+
+崩溃后清理残留（只删 PyInstaller 自己的临时目录，不会动整个 `%TEMP%`）：
+
+```bat
+for /d %d in ("%TEMP%\_MEI*") do @rmdir /s /q "%d"
+```
+
+### 卸载
+
+1. 删除 `PicPress.exe`（用过 MCP 的话再删 `picpress-mcp.exe`）
+2. 可选：从 MCP 客户端配置里移除 `picpress` 条目
+3. 没有第 3 步——无注册表键、无 AppData 目录
+
+## ❓ 常见问题
+
+**打开时提示"Windows 已保护你的电脑"？**
+exe 没有代码签名（证书要花钱）。点「更多信息」→「仍要运行」即可；
+随着下载量增加，这个提示会逐渐消失。
+
+**为什么目标体积不能大于原图？**
+因为那不叫压缩。PicPress 会直接拒绝并说明原因，而不是写一个"假装压缩过"的更大文件。
+
+**目标定得太小、压不下去怎么办？**
+PicPress 会告诉你它实际能做到的最小体积，建议改大目标或勾选「允许降低分辨率」。
+
+**会覆盖我的文件吗？**
+不会。输出命名是 `<原名>_<目标>.<扩展名>`，重名自动加 ` (2)`、` (3)`，原图始终保留。
+
+**为什么 exe 有 55 MB？**
+里面打包了 Python、Qt 图形库和 Pillow，所以对方电脑什么都不用装。
+便携文件夹版体积相同但启动更快。
+
+**能批量压一个文件夹吗？**
+可以——点「添加文件夹」或直接把文件夹拖进窗口，统一压到同一目标。
+
+## 📤 分享给别人
+
+- **最省事：** 直接发 `PicPress.exe`，对方双击就能用——免安装、免 Python
+  （记得提醒上文的 SmartScreen 提示）。
+- **最正规：** 发布 GitHub Release，把
+  `https://github.com/<你>/picpress/releases/latest` 发给对方。
+- **给会用 Agent 的朋友：** 发 `picpress-mcp.exe`，再把上面的 MCP 配置片段给他，
+  粘贴进客户端、重启、信任即可。不确定是否连通，先跑 `picpress-mcp.exe --selftest`。
+
+维护者发布新版本的操作步骤见 [docs/RELEASING.md](docs/RELEASING.md)。
 
 ## 🧩 路线图
 
