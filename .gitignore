@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# PyInstaller
+build/
+dist/
+*.spec
+
+# Tests / demo artifacts
+tests/_tmp/
+tests/_tmp_mcp/
+scripts/demo_photos/
+scripts/demo_out/
+scripts/demo_shot.png
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Release staging
+release/

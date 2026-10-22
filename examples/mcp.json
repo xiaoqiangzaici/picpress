@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "picpress": {
+      "command": "picpress-mcp.exe",
+      "args": [],
+      "description": "PicPress — compress images to an exact target size (B/KB/MB)"
+    }
+  }
+}

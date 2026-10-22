@@ -1,0 +1,63 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e ".[all]"
+      - name: Core engine tests
+        run: python tests/test_core.py
+      - name: MCP server tests
+        run: python tests/test_mcp_server.py
+
+  build-windows:
+    needs: test
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+      - name: Build exes
+        run: python scripts/build.py
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: picpress-windows
+          path: |
+            dist/PicPress.exe
+            dist/picpress-mcp.exe
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: picpress-windows
+          path: dist
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/PicPress.exe
+            dist/picpress-mcp.exe
+          generate_release_notes: true
