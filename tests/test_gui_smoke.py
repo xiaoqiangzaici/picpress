@@ -1,15 +1,24 @@
 """GUI smoke tests: language switch, format mapping, output naming.
 
-Needs a desktop session (Qt widgets render for real). Run with:
+Runs headless: Qt's ``offscreen`` platform plugin is used by default so the
+suite works on CI runners and over SSH. Override with
+``PICPRESS_GUI_PLATFORM=windows`` if you want to watch it on a desktop.
+
     python tests/test_gui_smoke.py
 """
 
 from __future__ import annotations
 
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+
+# Must be set before Qt is imported. `offscreen` avoids depending on a real
+# desktop session (the usual cause of flaky Qt runs on CI).
+os.environ.setdefault("QT_QPA_PLATFORM",
+                      os.environ.get("PICPRESS_GUI_PLATFORM", "offscreen"))
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
@@ -49,6 +58,8 @@ class GuiSmokeTests(unittest.TestCase):
 
     def tearDown(self):
         self.win.close()
+        self.win.deleteLater()
+        QApplication.processEvents()
 
     def test_language_switch_updates_strings(self):
         self.assertEqual(self.win.btn_go.text(), STRINGS["zh"]["btn.compress"])
@@ -113,4 +124,11 @@ class GuiSmokeTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    result = unittest.main(exit=False, verbosity=2).result
+    ok = result.wasSuccessful()
+    sys.stdout.flush()
+    sys.stderr.flush()
+    # Qt sometimes aborts while tearing C++ objects down at interpreter exit,
+    # turning a fully green run into exit code 1 (seen on GitHub Actions).
+    # Exit deterministically instead of letting Python run Qt's finalizers.
+    os._exit(0 if ok else 1)

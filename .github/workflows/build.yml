@@ -23,6 +23,8 @@ jobs:
       - name: MCP server tests
         run: python tests/test_mcp_server.py
       - name: GUI smoke tests
+        env:
+          QT_QPA_PLATFORM: offscreen
         run: python tests/test_gui_smoke.py
 
   build-windows:
