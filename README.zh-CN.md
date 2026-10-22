@@ -119,6 +119,46 @@ WorkBuddy 的 `~/.workbuddy/mcp.json`）。
 返回均为结构化 JSON，`status` 字段取值：
 `ok` · `target_too_large` · `unreachable` · `error`。
 
+## 🧪 如何测试 MCP 端
+
+> **为什么双击 `picpress-mcp.exe` 没反应？**
+> 它是 stdio 服务而不是图形程序：启动后就安静等待客户端通过 stdin/stdout
+> 发 JSON-RPC 消息。"没反应"是正常现象。
+
+三种验证方式：
+
+**1. 内置自检（不需要客户端，也不需要 Python）**
+
+```bat
+picpress-mcp.exe --selftest
+```
+
+依次做 6 项检查（造样例图、列格式、读信息、预估、压缩、护栏），最后给出报告：
+
+```
+[1/6] sample photo .......... ...\sample_photo.jpg  (2.08 MB)
+[5/6] compress_image ........ OK  2.08 MB -> 529.3 KB (-75.2%), target 533.0 KB met
+[6/6] guard (target 50 MB) .. target_too_large (correctly refused)
+RESULT: 6/6 checks passed  —  the MCP server is healthy.
+```
+
+Windows 上也可以直接双击 exe 旁边的 `MCP-自检.bat`。
+
+**2. 协议级测试客户端（走真实 MCP 协议）**
+
+```bash
+python scripts/test_mcp.py            # 测试 dist/picpress-mcp.exe
+python scripts/test_mcp.py --python   # 测试源码
+```
+
+会完成握手、列出工具、逐个调用，并逐项打印 `PASS`/`FAIL`，失败时返回非零退出码。
+
+**3. 接真实 Agent**
+
+把服务写进客户端的 MCP 配置，重启/信任后对 Agent 说
+"把 D:\photos\a.jpg 压到 300KB"，即可在客户端的工具调用日志里看到
+`compress_image` 的调用。
+
 ## 📖 工作原理
 
 1. 目标体积（如 `500 KB`）换算为字节

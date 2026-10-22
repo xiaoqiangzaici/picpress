@@ -120,6 +120,48 @@ Drop this into your client's MCP config (e.g. Claude Desktop's
 All results are structured JSON with a `status` field:
 `ok` · `target_too_large` · `unreachable` · `error`.
 
+## 🧪 Testing the MCP server
+
+> **Why does double-clicking `picpress-mcp.exe` show nothing?**
+> It is a stdio server, not a GUI app. It starts, then waits silently for a
+> client to speak JSON-RPC over stdin/stdout. Seeing "no reaction" is correct.
+
+Three ways to verify it works:
+
+**1. Built-in self-test (no client, no Python needed)**
+
+```bat
+picpress-mcp.exe --selftest
+```
+
+Runs six checks (create a sample photo, list formats, read info, estimate,
+compress, guard rail) and prints a report:
+
+```
+[1/6] sample photo .......... ...\picpress-mcp-selftest\sample_photo.jpg  (2.08 MB)
+[5/6] compress_image ........ OK  2.08 MB -> 529.3 KB (-75.2%), target 533.0 KB met
+[6/6] guard (target 50 MB) .. target_too_large (correctly refused)
+RESULT: 6/6 checks passed  —  the MCP server is healthy.
+```
+
+On Windows you can also double-click `MCP-自检.bat` next to the exe.
+
+**2. Protocol-level test client (speaks real MCP)**
+
+```bash
+python scripts/test_mcp.py            # against dist/picpress-mcp.exe
+python scripts/test_mcp.py --python   # against the source tree
+```
+
+It performs the handshake, lists tools and calls every one of them, printing
+`PASS`/`FAIL` per check and exiting non-zero on failure.
+
+**3. Connect a real agent**
+
+Add the server to your client's MCP config, restart/trust it, then ask the
+agent something like *"compress D:\photos\a.jpg to 300 KB"*. The call shows up
+as `compress_image` in the client's tool log.
+
 ## 📖 How it works
 
 1. The target (e.g. `500 KB`) is converted to bytes

@@ -19,6 +19,7 @@ Client configuration example (``mcp.json`` / ``claude_desktop_config.json``)::
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -242,8 +243,120 @@ def supported_formats() -> dict[str, Any]:
     }
 
 
+def _enable_utf8_console() -> None:
+    """Make Chinese text render correctly in the Windows console."""
+    try:
+        if sys.platform == "win32":
+            import ctypes
+            ctypes.windll.kernel32.SetConsoleOutputCP(65001)
+    except Exception:  # noqa: BLE001 - cosmetic only
+        pass
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _selftest() -> int:
+    """Run a full round of tool calls without any MCP client.
+
+    Useful to verify the shipped binary: ``picpress-mcp.exe --selftest``.
+    Prints a human-readable report and keeps the generated files on disk.
+    """
+    import os
+    import tempfile
+
+    _enable_utf8_console()
+
+    from PIL import Image
+
+    print("PicPress MCP self-test")
+    print("----------------------")
+
+    work = Path(tempfile.gettempdir()) / "picpress-mcp-selftest"
+    work.mkdir(parents=True, exist_ok=True)
+    src = work / "sample_photo.jpg"
+
+    # 1) Create a photo-like sample (~2 MB).
+    if not src.exists():
+        import random
+        random.seed(5)
+        w, h = 2400, 1600
+        img = Image.new("RGB", (w, h))
+        px = img.load()
+        for y in range(h):
+            base_g = int(70 + 100 * y / h)
+            base_b = int(140 + 70 * y / h)
+            for x in range(0, w, 2):
+                n = random.randint(-28, 28)
+                c = (max(0, min(255, int(100 + 120 * x / w) + n)),
+                     max(0, min(255, base_g + n)),
+                     max(0, min(255, base_b + int(40 * x / w) + n)))
+                px[x, y] = c
+                if x + 1 < w:
+                    px[x + 1, y] = c
+        img.save(src, "JPEG", quality=95)
+    sample_bytes = src.stat().st_size
+    print(f"[1/6] sample photo .......... {src}  ({format_size(sample_bytes)})")
+
+    checks = 1
+
+    # 2) supported_formats
+    fmt = supported_formats()
+    print(f"[2/6] supported_formats ..... {len(fmt['input_extensions'])} input types, "
+          f"{', '.join(fmt['output_formats'])}, units {', '.join(fmt['units'])}")
+    checks += 1
+
+    # 3) image_info
+    info = image_info_tool(str(src))
+    print(f"[3/6] image_info ............ {info['width']}x{info['height']} "
+          f"{info['format']} {info['size']}")
+    checks += 1
+
+    # 4) estimate_target
+    target_kb = max(20, int(sample_bytes / 1024 / 4))
+    est = estimate_target(str(src), target_kb, "KB", allow_resize=True)
+    print(f"[4/6] estimate_target ....... {target_kb} KB -> {est['verdict']} "
+          f"(smallest possible {est['min_size']})")
+    checks += 1
+
+    # 5) compress_image
+    res = compress_image(str(src), target_kb, "KB",
+                         output_dir=str(work / "out"), allow_resize=True)
+    ok = res["status"] == "ok" and (res["final_bytes"] or 0) <= target_kb * 1024
+    print(f"[5/6] compress_image ........ {res['status'].upper()}  {res['message']}")
+    if res.get("output_path"):
+        print(f"      output ................ {res['output_path']}")
+    checks += int(ok)
+
+    # 6) guard rail: a target larger than the source must be refused.
+    guard = compress_image(str(src), 50, "MB")
+    guard_ok = guard["status"] == "target_too_large"
+    print(f"[6/6] guard (target 50 MB) .. {guard['status']} "
+          f"({'correctly refused' if guard_ok else 'UNEXPECTED'})")
+    checks += int(guard_ok)
+
+    passed = checks == 6
+    print()
+    print(f"RESULT: {checks}/6 checks passed"
+          + ("  —  the MCP server is healthy." if passed
+             else "  —  something is wrong, see above."))
+    print(f"Files kept in: {work}")
+    print()
+    print("自检完成。这是服务端内部功能测试；真实客户端连接请见 README 的 MCP 章节。")
+    if sys.stdin and sys.stdin.isatty():
+        try:
+            input("Press Enter to exit / 按回车退出…")
+        except EOFError:
+            pass
+    return 0 if passed else 1
+
+
 def main() -> None:
     """Entry point used by the console script and the packaged exe."""
+    if "--selftest" in sys.argv[1:]:
+        raise SystemExit(_selftest())
     server.run()  # stdio transport
 
 
