@@ -130,7 +130,9 @@ class McpServerTests(unittest.TestCase):
         payload = json.loads(result.content[0].text)
         self.assertEqual(payload["summary"]["total"], 1)
         self.assertEqual(payload["summary"]["compressed"], 1)
-        self.assertTrue((outdir / "photo.jpg").exists())
+        produced = list(outdir.glob("*.jpg"))
+        self.assertEqual(len(produced), 1, produced)
+        self.assertIn(f"{target_kb}KB", produced[0].name)
 
 
 if __name__ == "__main__":

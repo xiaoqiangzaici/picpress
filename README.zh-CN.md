@@ -25,7 +25,10 @@ PicPress 会把照片重新编码到刚好装得下——并且用**满足目标
 - 🚫 **只做压缩** — 目标 ≥ 原图体积时给出明确警示，不产出虚假结果
 - 🔍 **诚实的极限** — 目标实在达不到时，报告"最小可达体积"供你决策
 - 🧠 **智能编码** — 二分搜索 JPEG/WebP/PNG 质量（必要时可选轻微降分辨率），以最高画质压进目标
-- 🖼 **格式齐全** — 支持 JPG/PNG/WebP/BMP/TIFF 输入；JPG/WebP/PNG 输出（含透明通道自动选 WebP）
+- 🈶 **界面中英切换** — 一键切换 English / 简体中文，窗口原地重建，文件列表与设置全部保留
+- 🏷 **命名不撞车** — 输出文件名自带目标体积（`photo_500KB.jpg`、`photo_1MB.jpg`），
+  重名时自动追加 `(2)`，同一张图压 100KB 和 200KB 到同一目录也不会互相覆盖
+- 🖼 **格式精确控制** — JPG（`.jpg`）、JPEG（`.jpeg`）、PNG、WebP，或自动（含透明通道时选 WebP）
 - 🔒 **隐私友好** — 默认清除 EXIF（GPS、机型等），需要时可保留
 - 📦 **批量处理** — 整个文件夹拖进来，统一压到同一目标
 - 🤖 **MCP 服务** — 5 个工具供智能体调用：`compress_image`、`batch_compress`、`estimate_target`、`image_info_tool`、`supported_formats`
@@ -34,6 +37,20 @@ PicPress 会把照片重新编码到刚好装得下——并且用**满足目标
 ## 📸 界面
 
 ![PicPress 界面](docs/assets/screenshot.png)
+
+<details>
+<summary>英文界面</summary>
+
+![PicPress English UI](docs/assets/screenshot-en.png)
+
+</details>
+
+<details>
+<summary>警示弹窗（浅底深字）</summary>
+
+![PicPress 警示弹窗](docs/assets/screenshot-dialog.png)
+
+</details>
 
 ## 🚀 快速开始（桌面版）
 
@@ -133,8 +150,9 @@ python scripts/build.py
 桌面版与 MCP 服务都依赖它。
 
 ```bash
-python tests/test_core.py        # 引擎单元测试
-python tests/test_mcp_server.py  # MCP 协议测试
+python tests/test_core.py        # 引擎单元测试（19 个）
+python tests/test_mcp_server.py  # MCP 协议测试（5 个）
+python tests/test_gui_smoke.py   # GUI 冒烟测试（4 个，需桌面环境）
 ```
 
 ## 📄 许可证

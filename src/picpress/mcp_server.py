@@ -67,7 +67,9 @@ def compress_image(
     target_size: float,
     unit: str = "KB",
     output_path: str | None = None,
+    output_dir: str | None = None,
     output_format: str = "auto",
+    include_target_in_name: bool = True,
     allow_resize: bool = False,
     keep_metadata: bool = False,
 ) -> dict[str, Any]:
@@ -79,10 +81,15 @@ def compress_image(
         target_size: Desired maximum file size, e.g. ``500``.
         unit: Unit of target_size — "B", "KB" or "MB"
             (KB = 1024 B, MB = 1024 KB).
-        output_path: Where to write the result. Defaults to
-            ``<name>.picpress.<ext>`` next to the source.
+        output_path: Exact output file path. Overrides output_dir and naming.
+        output_dir: Folder for the result (created if missing). The file is
+            named ``<source-stem>_<target>.<ext>`` when
+            include_target_in_name is true, and ``" (2)"`` is appended when
+            that name already exists.
         output_format: "auto" (keeps transparency-aware best choice),
-            "jpeg", "webp" or "png".
+            "jpeg", "webp" or "png". JPEG can also be written as .jpeg.
+        include_target_in_name: Put the target size in the file name so
+            different targets never overwrite each other.
         allow_resize: If true, may downscale resolution slightly as a
             last resort to reach an aggressive target.
         keep_metadata: Keep EXIF metadata (stripped by default for size
@@ -98,9 +105,11 @@ def compress_image(
     result = compress_to_target(
         image_path, target_size, unit,
         output=output_path,
+        output_dir=output_dir,
         output_format=_normalize_format(output_format),
         allow_resize=allow_resize,
         keep_metadata=keep_metadata,
+        include_target_in_name=include_target_in_name,
     )
     return result.to_dict()
 
@@ -112,6 +121,7 @@ def batch_compress(
     unit: str = "KB",
     output_dir: str | None = None,
     output_format: str = "auto",
+    include_target_in_name: bool = True,
     allow_resize: bool = False,
     keep_metadata: bool = False,
 ) -> dict[str, Any]:
@@ -124,6 +134,8 @@ def batch_compress(
         output_dir: Output folder (created if missing). Defaults to
             writing next to each source.
         output_format: "auto", "jpeg", "webp" or "png".
+        include_target_in_name: Put the target size in each file name
+            (avoids overwriting results from a different target).
         allow_resize: Allow downscaling as a last resort.
         keep_metadata: Keep EXIF metadata.
 
@@ -137,6 +149,7 @@ def batch_compress(
         image_paths, target_size, unit,
         output_dir=output_dir, output_format=fmt,
         allow_resize=allow_resize, keep_metadata=keep_metadata,
+        include_target_in_name=include_target_in_name,
     )]
     ok = [r for r in results if r["status"] == "ok"]
     return {

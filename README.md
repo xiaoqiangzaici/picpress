@@ -26,7 +26,9 @@ It ships in two forms:
 - 🚫 **Compression only** — if the target ≥ original size, you get a clear warning instead of a bogus result
 - 🔍 **Honest limits** — when a target is unreachable even at minimum quality, PicPress reports the smallest size it *can* achieve
 - 🧠 **Smart encoding** — binary-searches JPEG/WebP/PNG quality (and, only if you allow it, a gentle downscale) to land under the target at the best visual quality
-- 🖼 **Wide format support** — JPG, PNG, WebP, BMP, TIFF input; JPG / WebP / PNG output (auto-picks WebP when the image has transparency)
+- 🈶 **Bilingual UI** — switch between English and 简体中文 instantly; the window rebuilds in place and keeps your files and settings
+- 🏷 **Collision-free naming** — outputs carry the target size (`photo_500KB.jpg`, `photo_1MB.jpg`), and repeats get Explorer-style ` (2)` suffixes, so 100 KB and 200 KB runs never overwrite each other
+- 🖼 **Explicit format control** — JPG (`.jpg`), JPEG (`.jpeg`), PNG, WebP, or Auto (picks WebP when the image has transparency)
 - 🔒 **Privacy-friendly** — EXIF metadata (GPS, camera info) is stripped by default; opt in to keep it
 - 📦 **Batch mode** — drop a folder of photos, compress them all to the same target
 - 🤖 **MCP server** — five tools agents can call: `compress_image`, `batch_compress`, `estimate_target`, `image_info_tool`, `supported_formats`
@@ -35,6 +37,20 @@ It ships in two forms:
 ## 📸 Screenshot
 
 ![PicPress UI](docs/assets/screenshot.png)
+
+<details>
+<summary>English UI / 英文界面</summary>
+
+![PicPress UI in English](docs/assets/screenshot-en.png)
+
+</details>
+
+<details>
+<summary>Warning dialog (light surface, dark text) / 警示弹窗</summary>
+
+![PicPress warning dialog](docs/assets/screenshot-dialog.png)
+
+</details>
 
 ## 🚀 Quick Start (desktop app)
 
@@ -137,8 +153,9 @@ Issues and PRs are welcome. Please keep the core engine (`src/picpress/core.py`)
 UI-agnostic — both the desktop app and the MCP server depend on it.
 
 ```bash
-python tests/test_core.py        # engine unit tests
-python tests/test_mcp_server.py  # MCP protocol tests
+python tests/test_core.py        # engine unit tests (19)
+python tests/test_mcp_server.py  # MCP protocol tests (5)
+python tests/test_gui_smoke.py   # GUI smoke tests (4, needs a desktop session)
 ```
 
 ## 📄 License

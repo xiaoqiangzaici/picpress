@@ -18,6 +18,7 @@ from PIL import Image, ImageOps
 __all__ = [
     "CompressResult",
     "CompressionError",
+    "compact_label",
     "format_size",
     "parse_size",
     "compress_to_target",
@@ -94,6 +95,60 @@ def format_size(num_bytes: float | int) -> str:
             return f"{num:.2f} {unit}" if num < 10 else f"{num:.1f} {unit}"
         num /= 1024
     return f"{num:.2f} GB"
+
+
+def compact_label(num_bytes: int) -> str:
+    """Compact size label for file names: ``900B`` / ``500KB`` / ``1.5MB``."""
+    n = int(num_bytes)
+    for unit, factor in (("MB", 1024 ** 2), ("KB", 1024)):
+        if n >= factor:
+            val = n / factor
+            if abs(val - round(val)) < 1e-9:
+                return f"{int(round(val))}{unit}"
+            return f"{val:.1f}{unit}"
+    return f"{n}B"
+
+
+# Output extensions allowed per output format.
+_ALLOWED_EXT = {
+    "jpeg": {".jpg", ".jpeg", ".jpe"},
+    "png": {".png"},
+    "webp": {".webp"},
+}
+_DEFAULT_EXT = {"jpeg": ".jpg", "png": ".png", "webp": ".webp"}
+
+
+def _resolve_ext(fmt: str, ext: str | None) -> str:
+    """Validate/derive the file extension for ``fmt``."""
+    if ext:
+        e = str(ext).lower()
+        if not e.startswith("."):
+            e = f".{e}"
+        if e in _ALLOWED_EXT.get(fmt, set()):
+            return e
+    return _DEFAULT_EXT[fmt]
+
+
+def _sanitize_label(label: str) -> str:
+    """Strip characters Windows forbids in file names."""
+    cleaned = "".join(ch for ch in label if ch not in '<>:"/\\|?*').strip()
+    return cleaned or "compressed"
+
+
+def unique_path(path: Path) -> Path:
+    """Return ``path`` or a ``name (2).ext`` style variant that does not exist.
+
+    Keeps repeated runs (same source, same target) from overwriting each other,
+    the way Windows Explorer de-duplicates names.
+    """
+    if not path.exists():
+        return path
+    stem, ext = path.stem, path.suffix
+    for i in range(2, 1000):
+        candidate = path.with_name(f"{stem} ({i}){ext}")
+        if not candidate.exists():
+            return candidate
+    raise CompressionError(f"Too many files named like {path.name}")
 
 
 # ---------------------------------------------------------------- results
@@ -246,12 +301,24 @@ def compress_to_target(
     allow_resize: bool = False,
     keep_metadata: bool = False,
     progress: Callable[[float, str], None] | None = None,
+    output_dir: str | os.PathLike | None = None,
+    output_ext: str | None = None,
+    include_target_in_name: bool = True,
+    size_label: str | None = None,
 ) -> CompressResult:
     """Compress one image so its file size is at most ``target`` (in ``unit``).
 
     The output is never larger than the source — if the requested size is not
     smaller than the original file, the call returns ``status='target_too_large'``
     and writes nothing.
+
+    Output naming (when ``output`` is not given)::
+
+        <source-stem>_<target><ext>      e.g. photo_500KB.jpg
+
+    and if that name already exists, ``photo_500KB (2).jpg`` follows, so the
+    same photo compressed to 100 KB and 200 KB never collide. Pass an explicit
+    ``output`` path to control the name yourself.
     """
     src = Path(source)
     if not src.is_file():
@@ -307,12 +374,17 @@ def compress_to_target(
             target_bytes=target_bytes,
         )
 
-    if output is None:
-        ext = {"jpeg": ".jpg", "webp": ".webp", "png": ".png"}[fmt]
-        out_path = src.with_name(f"{src.stem}.picpress{ext}")
-    else:
+    ext = _resolve_ext(fmt, output_ext)
+    if output is not None:
         out_path = Path(output)
         out_path.parent.mkdir(parents=True, exist_ok=True)
+    else:
+        base_dir = Path(output_dir) if output_dir else src.parent
+        base_dir.mkdir(parents=True, exist_ok=True)
+        label = _sanitize_label(size_label or compact_label(target_bytes))
+        base_name = (f"{src.stem}_{label}" if include_target_in_name
+                     else f"{src.stem}_compressed")
+        out_path = unique_path(base_dir / f"{base_name}{ext}")
 
     if progress:
         progress(0.15, "Searching encoder settings")
@@ -452,17 +524,14 @@ def compress_many(
     allow_resize: bool = False,
     keep_metadata: bool = False,
     progress: Callable[[float, str], None] | None = None,
+    output_ext: str | None = None,
+    include_target_in_name: bool = True,
+    size_label: str | None = None,
 ) -> list[CompressResult]:
     """Compress a batch of images; each file gets its own result row."""
     results: list[CompressResult] = []
     items = list(sources)
     for i, source in enumerate(items):
-        out = None
-        if output_dir is not None:
-            out_path = Path(output_dir)
-            out_path.mkdir(parents=True, exist_ok=True)
-            out = out_path / Path(source).name
-
         def one_progress(p: float, msg: str, index: int = i) -> None:
             if progress:
                 progress((index + p) / max(1, len(items)), msg)
@@ -470,11 +539,14 @@ def compress_many(
         results.append(
             compress_to_target(
                 source, target, unit,
-                output=out,
+                output_dir=output_dir,
                 output_format=output_format,
                 allow_resize=allow_resize,
                 keep_metadata=keep_metadata,
                 progress=one_progress,
+                output_ext=output_ext,
+                include_target_in_name=include_target_in_name,
+                size_label=size_label,
             )
         )
     return results

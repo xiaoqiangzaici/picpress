@@ -76,9 +76,8 @@ class CompressTests(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        for f in cls.tmp.glob("*"):
-            f.unlink()
-        cls.tmp.rmdir()
+        import shutil
+        shutil.rmtree(cls.tmp, ignore_errors=True)
 
     def test_hit_target_kb(self):
         out = self.tmp / "out_kb.jpg"
@@ -166,6 +165,47 @@ class CompressTests(unittest.TestCase):
         import json
         r = compress_to_target(self.photo, 100, "KB", output=self.tmp / "d.jpg")
         json.dumps(r.to_dict())  # must not raise
+
+    def test_default_name_contains_target(self):
+        outdir = self.tmp / "named"
+        r = compress_to_target(self.photo, 80, "KB", output_dir=outdir,
+                               output_format="jpeg")
+        self.assertEqual(r.status, "ok", r.message)
+        self.assertEqual(Path(r.output_path).name, f"{self.photo.stem}_80KB.jpg")
+
+    def test_same_target_twice_gets_unique_suffix(self):
+        outdir = self.tmp / "dup"
+        r1 = compress_to_target(self.photo, 80, "KB", output_dir=outdir,
+                                output_format="jpeg")
+        r2 = compress_to_target(self.photo, 80, "KB", output_dir=outdir,
+                                output_format="jpeg")
+        self.assertEqual(Path(r1.output_path).name, f"{self.photo.stem}_80KB.jpg")
+        self.assertEqual(Path(r2.output_path).name, f"{self.photo.stem}_80KB (2).jpg")
+        self.assertTrue(Path(r1.output_path).exists())
+        self.assertTrue(Path(r2.output_path).exists())
+
+    def test_different_targets_do_not_collide(self):
+        outdir = self.tmp / "multi"
+        r100 = compress_to_target(self.photo, 40, "KB", output_dir=outdir,
+                                  output_format="jpeg")
+        r200 = compress_to_target(self.photo, 70, "KB", output_dir=outdir,
+                                  output_format="jpeg")
+        self.assertEqual(r100.status, "ok", r100.message)
+        self.assertEqual(r200.status, "ok", r200.message)
+        self.assertNotEqual(r100.output_path, r200.output_path)
+        self.assertIn("40KB", Path(r100.output_path).name)
+        self.assertIn("70KB", Path(r200.output_path).name)
+
+    def test_jpeg_extension_variant(self):
+        r = compress_to_target(self.photo, 90, "KB", output_dir=self.tmp / "ext",
+                               output_format="jpeg", output_ext=".jpeg")
+        self.assertEqual(r.status, "ok", r.message)
+        self.assertTrue(r.output_path.endswith(".jpeg"))
+
+    def test_nametag_can_be_disabled(self):
+        r = compress_to_target(self.photo, 90, "KB", output_dir=self.tmp / "plain",
+                               output_format="jpeg", include_target_in_name=False)
+        self.assertEqual(Path(r.output_path).name, f"{self.photo.stem}_compressed.jpg")
 
 
 if __name__ == "__main__":

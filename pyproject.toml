@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "picpress"
-version = "0.1.0"
+version = "0.2.0"
 description = "Compress photos to an exact target file size — desktop app + MCP server"
 readme = "README.md"
 license = { text = "MIT" }
