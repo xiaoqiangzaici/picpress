@@ -124,11 +124,14 @@ class GuiSmokeTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    result = unittest.main(exit=False, verbosity=2).result
+    # Drive the runner explicitly instead of unittest.main(): PySide6 can
+    # segfault while Qt tears down at interpreter exit (reproducible on the
+    # GitHub Windows runner), which turns a green run into exit code 139.
+    suite = unittest.TestLoader().loadTestsFromModule(sys.modules[__name__])
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
     ok = result.wasSuccessful()
+    print("GUI_SMOKE_OK" if ok else "GUI_SMOKE_FAILED", flush=True)
     sys.stdout.flush()
     sys.stderr.flush()
-    # Qt sometimes aborts while tearing C++ objects down at interpreter exit,
-    # turning a fully green run into exit code 1 (seen on GitHub Actions).
-    # Exit deterministically instead of letting Python run Qt's finalizers.
+    # Leave immediately: no Qt finalizers, no atexit handlers.
     os._exit(0 if ok else 1)
