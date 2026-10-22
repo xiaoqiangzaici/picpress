@@ -14,9 +14,11 @@ Compress photos to the exact size you choose — 精确到 B / KB / MB。
 
 | 下载 | 大小 | 说明 |
 |---|---|---|
-| **PicPress.exe** | 约 55 MB | 桌面应用，单文件，免安装 |
-| **picpress-mcp.exe** | 约 37 MB | 给 AI 智能体用的本地 MCP 服务 |
-| **PicPress-portable.zip** | 约 140 MB | 便携文件夹版，启动更快、**不写 `%TEMP%`** |
+| **PicPress-portable.zip** | 约 55 MB | 桌面应用——解压到任意位置，运行里面的 `PicPress.exe` |
+| **picpress-mcp-portable.zip** | 约 37 MB | 给 AI 智能体用的 MCP 服务——解压后把客户端指向 `picpress-mcp.exe` |
+
+两个都是**便携文件夹版**：不安装、不需要运行库、**不往 `%TEMP%` 写任何东西**。
+解压即用，删掉文件夹就等于卸载。
 
 不需要账号、不上传文件、全程离线。
 
@@ -69,10 +71,14 @@ PicPress 会把照片重新编码到刚好装得下——并且用**满足目标
 
 ## 🚀 快速开始（桌面版）
 
-1. 从 [Releases](../../releases) 页面下载 `PicPress.exe`
-2. 双击运行，无需安装
-3. 拖入照片（或点击 **Add files** / **Add folder**），设置目标体积，点 **Compress**
+1. 从 [Releases](../../releases) 页面下载 **`PicPress-portable.zip`**
+2. 解压到任意位置（桌面、U 盘、`D:\Tools\PicPress` 都行）
+3. 运行文件夹里的 `PicPress.exe`，无需安装
+4. 拖入照片（或点击 **Add files** / **Add folder**），设置目标体积，点 **Compress**
 
+> 文件夹要整体保留——`PicPress.exe` 需要旁边的 `_internal` 目录才能运行。
+> 想卸载就整个文件夹删掉。
+>
 > Windows SmartScreen 可能提示未签名——点"更多信息 → 仍要运行"即可。
 > 源码可自行复现构建（见下文）。
 
@@ -184,22 +190,24 @@ python scripts/test_mcp.py --python   # 测试源码
 
 你得到的永远是预算内最好看的文件——不会变大，也不会偷偷乱来。
 
-## 🛠 自行构建 exe
+## 🛠 自行构建
 
 ```bash
 pip install -e ".[dev]"
-python scripts/build.py                # → dist/PicPress.exe、dist/picpress-mcp.exe
-python scripts/build.py all --onedir   # → dist/PicPress/PicPress.exe（不解包到 %TEMP%）
+python scripts/build.py            # → dist/PicPress/ 与 dist/picpress-mcp/（便携文件夹）
+python scripts/package.py          # → dist/*.zip 与 SHA256SUMS.txt
+python scripts/build.py --onefile  # 可选：改为单文件 exe
 ```
 
-两种模式结束前都会自动做冒烟测试（启动 GUI、与 MCP 握手），并清理测试产生的临时目录。
+构建结束前会自动做冒烟测试（启动 GUI、与 MCP 握手），并清理测试产生的临时目录。
 
 ## 🖥 运行要求
 
-- **现成 exe**：Windows 10 / 11（x64）。无需管理员权限、无需 Python、无需安装任何运行库。
+- **现成版本**：Windows 10 / 11（x64）。解压即用——无需管理员权限、无需 Python、
+  无需安装任何运行库。
 - **从源码运行**：Python 3.10+（推荐 3.12 / 3.13），执行 `pip install -e ".[all]"`。
 - **macOS / Linux**：压缩引擎与 MCP 服务是纯 Python，跨平台可用；界面可从源码运行。
-  预编译的 exe 目前只提供 Windows 版。
+  预编译版本目前只提供 Windows。
 
 ## 🔒 隐私与磁盘足迹
 
@@ -208,22 +216,15 @@ PicPress 在数据方面很"无聊"，这是故意的：
 - **完全离线。** 无遥测、无统计、无更新检查。唯一可能联网的动作是你主动点标题栏的
   GitHub 按钮（会打开浏览器）。
 - **不写注册表。** 没有安装程序、没有右键菜单扩展、没有文件关联、没有开机自启、
-  没有后台服务。**删掉 exe 就等于卸载干净。**
+  没有后台服务。**删掉文件夹就等于卸载干净。**
 - **绝不动原图。** 永远另写新文件。
-- **临时文件：** 单文件版（`--onefile`）启动时会把运行库解包到 `%TEMP%\_MEI*`
-  （约 134 MB），正常关闭窗口时会自动删除。如果是**强制结束进程**或断电，
-  这个目录可能残留——它是纯临时数据，删掉即可（Windows「磁盘清理 → 临时文件」也会清）。
-  便携文件夹版（`--onedir`）**不做任何解包**。
-
-崩溃后清理残留（只删 PyInstaller 自己的临时目录，不会动整个 `%TEMP%`）：
-
-```bat
-for /d %d in ("%TEMP%\_MEI*") do @rmdir /s /q "%d"
-```
+- **不产生临时文件。** 发布的是便携文件夹版，直接从磁盘运行，不往 `%TEMP%` 解包。
+  （如果你自己用 `scripts/build.py --onefile` 构建单文件版，那个版本每次启动会把
+  约 134 MB 解包到 `%TEMP%\_MEI*`，正常退出会清理——这正是正式发布只提供文件夹版的原因。）
 
 ### 卸载
 
-1. 删除 `PicPress.exe`（用过 MCP 的话再删 `picpress-mcp.exe`）
+1. 删除 `PicPress` 文件夹（用过 MCP 的话再删 `picpress-mcp` 文件夹）
 2. 可选：从 MCP 客户端配置里移除 `picpress` 条目
 3. 没有第 3 步——无注册表键、无 AppData 目录
 
@@ -242,21 +243,24 @@ PicPress 会告诉你它实际能做到的最小体积，建议改大目标或�
 **会覆盖我的文件吗？**
 不会。输出命名是 `<原名>_<目标>.<扩展名>`，重名自动加 ` (2)`、` (3)`，原图始终保留。
 
-**为什么 exe 有 55 MB？**
+**为什么下载是 55 MB 的 zip 而不是单个 exe？**
 里面打包了 Python、Qt 图形库和 Pillow，所以对方电脑什么都不用装。
-便携文件夹版体积相同但启动更快。
+发布文件夹版（打包成 zip）是刻意的选择：单文件版每次启动都要把约 134 MB 解包到
+`%TEMP%`，一旦进程被强杀，那个目录会残留；文件夹版启动即用，除自身目录外不写任何东西。
 
 **能批量压一个文件夹吗？**
 可以——点「添加文件夹」或直接把文件夹拖进窗口，统一压到同一目标。
 
 ## 📤 分享给别人
 
-- **最省事：** 直接发 `PicPress.exe`，对方双击就能用——免安装、免 Python
+- **最省事：** 直接发 `PicPress-portable.zip`，对方解压后双击 `PicPress.exe`
+  就能用——免安装、免 Python、用完删掉文件夹即净
   （记得提醒上文的 SmartScreen 提示）。
 - **最正规：** 发布 GitHub Release，把
   `https://github.com/<你>/picpress/releases/latest` 发给对方。
-- **给会用 Agent 的朋友：** 发 `picpress-mcp.exe`，再把上面的 MCP 配置片段给他，
-  粘贴进客户端、重启、信任即可。不确定是否连通，先跑 `picpress-mcp.exe --selftest`。
+- **给会用 Agent 的朋友：** 发 `picpress-mcp-portable.zip`，再把上面的 MCP 配置片段给他，
+  对方解压、粘贴进客户端、重启、信任即可。不确定是否连通，先跑
+  `picpress-mcp.exe --selftest`。
 
 维护者发布新版本的操作步骤见 [docs/RELEASING.md](docs/RELEASING.md)。
 

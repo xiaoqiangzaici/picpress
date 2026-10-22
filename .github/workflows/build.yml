@@ -35,28 +35,17 @@ jobs:
           python-version: "3.12"
       - name: Install dependencies
         run: pip install -e ".[dev]"
-      - name: Build single-file exes
+      - name: Build portable folders
         run: python scripts/build.py
-      - name: Build portable folder (no %TEMP% extraction)
-        run: python scripts/build.py all --onedir
-      - name: Package artifacts + checksums
-        shell: pwsh
-        run: |
-          Compress-Archive -Path dist/PicPress/* -DestinationPath dist/PicPress-portable.zip -Force
-          $files = @("dist/PicPress.exe", "dist/picpress-mcp.exe", "dist/PicPress-portable.zip")
-          foreach ($f in $files) {
-            $h = (Get-FileHash $f -Algorithm SHA256).Hash.ToLower()
-            "$h  $(Split-Path $f -Leaf)"
-          } | Set-Content dist/SHA256SUMS.txt -Encoding ascii
-          Get-Content dist/SHA256SUMS.txt
+      - name: Package zips + checksums
+        run: python scripts/package.py
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
           name: picpress-windows
           path: |
-            dist/PicPress.exe
-            dist/picpress-mcp.exe
             dist/PicPress-portable.zip
+            dist/picpress-mcp-portable.zip
             dist/SHA256SUMS.txt
 
   release:
@@ -74,9 +63,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            dist/PicPress.exe
-            dist/picpress-mcp.exe
             dist/PicPress-portable.zip
+            dist/picpress-mcp-portable.zip
             dist/SHA256SUMS.txt
           generate_release_notes: true
           body: |
@@ -84,9 +72,9 @@ jobs:
 
             | File | What it is |
             |---|---|
-            | `PicPress.exe` | Desktop app — single file, no install |
-            | `picpress-mcp.exe` | MCP server for AI agents (`--selftest` works offline) |
-            | `PicPress-portable.zip` | Portable folder — starts faster, writes nothing to `%TEMP%` |
+            | `PicPress-portable.zip` | Desktop app — unzip anywhere, run `PicPress.exe` |
+            | `picpress-mcp-portable.zip` | MCP server for AI agents — unzip, point your client at `picpress-mcp.exe` |
 
-            Windows 10/11 x64 · fully offline · unsigned exe may trigger SmartScreen
+            Windows 10/11 x64 · fully offline · portable, nothing is written to `%TEMP%`.
+            The exe is unsigned, so Windows SmartScreen may ask once
             (*More info → Run anyway*).

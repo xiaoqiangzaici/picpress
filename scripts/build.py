@@ -1,19 +1,19 @@
 """Build PicPress with PyInstaller.
 
 Usage:
-    python scripts/build.py                 # all targets, onefile (default)
+    python scripts/build.py                 # all targets, portable folder (default)
     python scripts/build.py gui             # desktop app only
     python scripts/build.py mcp             # MCP server only
-    python scripts/build.py all --onedir    # portable folder (no temp extraction)
+    python scripts/build.py all --onefile   # opt-in single-file build
 
-Output (onefile, default):
-    dist/PicPress.exe           single-file GUI app (easy to share, ~55 MB)
-    dist/picpress-mcp.exe       single-file MCP server (~37 MB)
+Output (portable folder, default):
+    dist/PicPress/PicPress.exe              GUI +_internal/ (zip the folder to share)
+    dist/picpress-mcp/picpress-mcp.exe      MCP server +_internal/
 
-Output (--onedir):
-    dist/PicPress/PicPress.exe  portable folder build (starts faster, writes
-                                nothing to %TEMP% — zip the folder to share)
-    dist/picpress-mcp/picpress-mcp.exe
+Output (--onefile):
+    dist/PicPress.exe                       single-file GUI (~55 MB); extracts
+                                            ~134 MB to %TEMP% on every launch
+    dist/picpress-mcp.exe                   single-file MCP server
 """
 
 from __future__ import annotations
@@ -75,9 +75,9 @@ def run_pyinstaller(args: list[str]) -> None:
     subprocess.run(cmd, check=True, cwd=ROOT)
 
 
-def build(icon: Path | None, targets: set[str], onedir: bool) -> None:
+def build(icon: Path | None, targets: set[str], portable: bool) -> None:
     icon_args = ["--icon", str(icon)] if icon else []
-    mode = "--onedir" if onedir else "--onefile"
+    mode = "--onedir" if portable else "--onefile"
 
     # --- GUI app ---------------------------------------------------------
     # Standard PySide6 hooks pick up the needed Qt plugins; --collect-all
@@ -115,20 +115,20 @@ def _mei_dirs() -> set[Path]:
     return set(Path(tempfile.gettempdir()).glob("_MEI*"))
 
 
-def _gui_exe(onedir: bool, name: str = "PicPress") -> Path:
-    return DIST / name / f"{name}.exe" if onedir else DIST / f"{name}.exe"
+def _gui_exe(portable: bool, name: str = "PicPress") -> Path:
+    return DIST / name / f"{name}.exe" if portable else DIST / f"{name}.exe"
 
 
-def smoke_test(targets: set[str], onedir: bool) -> None:
+def smoke_test(targets: set[str], portable: bool) -> None:
     """Quick sanity checks on the built binaries."""
-    gui_exe = _gui_exe(onedir)
-    mcp_exe = _gui_exe(onedir, "picpress-mcp")
+    gui_exe = _gui_exe(portable)
+    mcp_exe = _gui_exe(portable, "picpress-mcp")
 
     if "gui" in targets:
         if not gui_exe.exists():
             raise SystemExit(f"Missing build output: {gui_exe}")
         size = (sum(f.stat().st_size for f in gui_exe.parent.rglob("*") if f.is_file())
-                if onedir else gui_exe.stat().st_size)
+                if portable else gui_exe.stat().st_size)
         print(f"OK  {gui_exe}  {size / 1024 / 1024:.1f} MB")
 
         before = _mei_dirs()
@@ -181,20 +181,20 @@ def smoke_test(targets: set[str], onedir: bool) -> None:
 
 if __name__ == "__main__":
     argv = [a.lower() for a in sys.argv[1:]]
-    onedir = "--onedir" in argv
+    portable = "--onefile" not in argv  # portable folder is the default
     argv = [a for a in argv if not a.startswith("--")]
     targets = ({"gui", "mcp"} if not argv or "all" in argv
                else set(argv) & {"gui", "mcp"})
     if not targets:
-        raise SystemExit("usage: build.py [gui|mcp|all] [--onedir]")
+        raise SystemExit("usage: build.py [gui|mcp|all] [--onefile]")
 
     DIST.mkdir(exist_ok=True)
     BUILD.mkdir(exist_ok=True)
     icon = make_icon()
     print(f"icon: {icon} | targets: {sorted(targets)} | "
-          f"mode: {'onedir' if onedir else 'onefile'}")
-    build(icon, targets, onedir)
-    smoke_test(targets, onedir)
+          f"mode: {'portable folder' if portable else 'single file'}")
+    build(icon, targets, portable)
+    smoke_test(targets, portable)
     print("\nBuild complete:")
     for exe in sorted(DIST.glob("*.exe")) + sorted(DIST.glob("*/*.exe")):
         print(f"  {exe}")
