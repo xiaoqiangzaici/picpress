@@ -210,8 +210,19 @@ class CompressResult:
 # ---------------------------------------------------------------- engine
 
 
-def _encode(img: Image.Image, fmt: str, quality: int, scale: float) -> bytes:
-    """Encode ``img`` at ``quality``/``scale`` and return raw file bytes."""
+def _encode(
+    img: Image.Image,
+    fmt: str,
+    quality: int,
+    scale: float,
+    exif: bytes | None = None,
+) -> bytes:
+    """Encode ``img`` at ``quality``/``scale`` and return raw file bytes.
+
+    When ``exif`` is given it is written into the JPEG/WebP in the same pass,
+    so the binary search that picks quality already sees the real file size
+    (a later re-encode-with-EXIF step used to push the file past the target).
+    """
     work = img
     if scale < 0.999:
         w, h = img.size
@@ -229,9 +240,15 @@ def _encode(img: Image.Image, fmt: str, quality: int, scale: float) -> bytes:
             work = background
         elif work.mode != "RGB":
             work = work.convert("RGB")
-        work.save(buf, "JPEG", quality=quality, optimize=True, progressive=True)
+        kwargs: dict = {"quality": quality, "optimize": True, "progressive": True}
+        if exif:
+            kwargs["exif"] = exif
+        work.save(buf, "JPEG", **kwargs)
     elif fmt == "webp":
-        work.save(buf, "WEBP", quality=quality, method=6)
+        kwargs = {"quality": quality, "method": 6}
+        if exif:
+            kwargs["exif"] = exif
+        work.save(buf, "WEBP", **kwargs)
     elif fmt == "png":
         # PNG has no quality knob; emulate it via palette size.
         colors = max(2, min(256, int(quality * 256 / MAX_QUALITY)))
@@ -251,6 +268,7 @@ def _best_fit(
     allow_resize: bool,
     min_quality: int = MIN_QUALITY,
     max_quality: int = MAX_QUALITY,
+    exif: bytes | None = None,
 ) -> tuple[bytes, int, float] | None:
     """Find the largest quality (optionally smallest downscale) that fits.
 
@@ -263,7 +281,7 @@ def _best_fit(
         best: tuple[bytes, int] | None = None
         while lo <= hi:
             mid = (lo + hi) // 2
-            data = _encode(img, fmt, mid, scale)
+            data = _encode(img, fmt, mid, scale, exif=exif)
             if len(data) <= target_bytes:
                 best = (data, mid)
                 lo = mid + 1  # try higher quality
@@ -389,11 +407,11 @@ def compress_to_target(
     if progress:
         progress(0.15, "Searching encoder settings")
 
-    fit = _best_fit(work, fmt, target_bytes, allow_resize)
+    fit = _best_fit(work, fmt, target_bytes, allow_resize, exif=exif)
 
     if fit is None:
         # Report the smallest thing we *can* make, so the user can decide.
-        smallest = _encode(work, fmt, MIN_QUALITY, MIN_SCALE if allow_resize else 1.0)
+        smallest = _encode(work, fmt, MIN_QUALITY, MIN_SCALE if allow_resize else 1.0, exif=exif)
         return CompressResult(
             status="unreachable",
             message=(
@@ -416,14 +434,7 @@ def compress_to_target(
     if progress:
         progress(0.85, "Writing output")
 
-    if exif:
-        try:
-            Image.open(io.BytesIO(data)).save(out_path, exif=exif)
-            data = out_path.read_bytes()
-        except Exception:  # noqa: BLE001 - metadata is best-effort
-            out_path.write_bytes(data)
-    else:
-        out_path.write_bytes(data)
+    out_path.write_bytes(data)
 
     final_bytes = out_path.stat().st_size
     warnings: list[str] = []
