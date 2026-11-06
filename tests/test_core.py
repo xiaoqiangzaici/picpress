@@ -67,6 +67,39 @@ class ParseSizeTests(unittest.TestCase):
         self.assertIn("MB", format_size(2 * 1024 * 1024))
 
 
+
+class KeepMetadataTests(unittest.TestCase):
+    """keep_metadata must not let the file grow past the target size."""
+
+    def setUp(self):
+        self.tmp = Path(__file__).parent / "_tmp_meta"
+        self.tmp.mkdir(exist_ok=True)
+        self.photo = make_photo(self.tmp / "meta.jpg")
+        # Attach a small EXIF blob so keep_metadata has something to preserve.
+        img = Image.open(self.photo)
+        exif = Image.Exif()
+        exif[271] = "PicPressTestCam"
+        img.save(self.photo, "JPEG", quality=92, exif=exif)
+
+    def tearDown(self):
+        import shutil
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def test_keep_metadata_stays_under_target(self):
+        target_kb = 50
+        out = self.tmp / "kept.jpg"
+        r = compress_to_target(
+            self.photo, target_kb, "KB",
+            output=out, output_format="jpeg", keep_metadata=True,
+        )
+        self.assertEqual(r.status, "ok", r.message)
+        self.assertIsNotNone(r.final_bytes)
+        self.assertLessEqual(r.final_bytes, target_kb * 1024)
+        # EXIF survived the round-trip.
+        with Image.open(out) as im:
+            self.assertTrue(im.info.get("exif"))
+
+
 class CompressTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
